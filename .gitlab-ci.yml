@@ -1,0 +1,39 @@
+variables:
+  DOCKER_DRIVER: overlay2
+#  SPRING_PROFILES_ACTIVE: gitlab-ci
+
+stages:
+  - test
+  - deploy
+
+maven-test-job:
+  image: maven:latest
+  stage: test
+  script: 
+    - echo "Compiling the code..."
+    - mvn test
+
+deploy-job:
+  image: docker:latest
+  stage: deploy
+  services:
+    - name: docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker version
+    - "docker info"
+    - "docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY"
+    ## Install Docker Compose 
+    - which docker-compose || apk add --no-cache docker-compose
+  script:
+    - echo "Deploying application..."
+    - echo "IMAGE_APP_REGISTRY_URL=$CI_REGISTRY_IMAGE" >> .env
+    - docker-compose build --pull --compress --force-rm
+    - echo "Pushing to gitlab..."
+    - docker push "$CI_REGISTRY_IMAGE"/gateway-service:latest
+    - docker push "$CI_REGISTRY_IMAGE"/user-service:latest
+    - docker push "$CI_REGISTRY_IMAGE"/assets-service:latest
+    - echo "Application successfully deployed."
+  after_script:
+    - "docker logout ${CI_REGISTRY}"
