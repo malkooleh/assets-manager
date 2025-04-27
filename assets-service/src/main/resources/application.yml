@@ -16,7 +16,7 @@ spring:
     driverClassName: org.postgresql.Driver
 #    url: jdbc:postgresql://localhost:5433/assets-service-db - for spring boot runner
 #    url: jdbc:postgresql://assets-service-db/assets-service-db - for docker compose
-    url: jdbc:postgresql://localhost:5433/assets-service-db
+    url: jdbc:postgresql://assets-service-db/assets-service-db
     username: user
     password: password
   jpa:
@@ -36,3 +36,21 @@ spring:
   flyway:
     table: schema_version
     locations: classpath:db/migration
+
+logging:
+  level:
+    root: info
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# Zipkin
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      #      for spring boot runner use localhost
+      #      endpoint: http://localhost:9411/api/v2/spans
+      #      for docker compose use zipkin
+      endpoint: http://zipkin:9411/api/v2/spans
