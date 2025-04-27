@@ -23,7 +23,7 @@ services:
     image: postgres:15.2-alpine
     restart: always
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       - POSTGRES_DB=user-service-db
       - POSTGRES_USER=user
@@ -85,5 +85,13 @@ services:
       - assets-manager-network
     ports:
       - "8500:8500"
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    ports:
+      - 9411:9411
+    networks:
+      - assets-manager-network
+
 networks:
   assets-manager-network:

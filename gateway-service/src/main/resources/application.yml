@@ -22,3 +22,21 @@ spring:
           uri: lb://assets-service
           predicates:
             - Path=/assets/**
+
+logging:
+  level:
+    root: info
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# Zipkin
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      #      for spring boot runner use localhost
+      #      endpoint: http://localhost:9411/api/v2/spans
+      #      for docker compose use zipkin
+      endpoint: http://zipkin:9411/api/v2/spans
