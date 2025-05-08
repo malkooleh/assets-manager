@@ -6,7 +6,10 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.envers.Audited;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -47,7 +50,22 @@ public class Asset {
     @Column
     @CreatedDate
     private LocalDateTime created;
+    
+    @Column
+    @LastModifiedDate
+    private LocalDateTime lastModified;
+    
+    @Column
+    @CreatedBy
+    private String createdBy;
+    
+    @Column
+    @LastModifiedBy
+    private String modifiedBy;
 
     @Column
     private Integer userId;
+    
+    @Column
+    private String notes;
 }

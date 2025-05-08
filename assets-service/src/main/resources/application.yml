@@ -37,11 +37,22 @@ spring:
     table: schema_version
     locations: classpath:db/migration
 
+  # File upload configuration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      # Asset photos upload directory
+      location: ./uploads/asset-photos
+
 logging:
   level:
     root: info
+    org.springframework: info
+    com.assetsservice: debug
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+    console: %d{yyyy-MM-dd HH:mm:ss} - %msg%n
 
 # Zipkin
 management:

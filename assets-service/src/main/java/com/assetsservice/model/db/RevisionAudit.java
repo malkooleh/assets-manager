@@ -35,4 +35,7 @@ public class RevisionAudit {
     @RevisionTimestamp
     @Temporal(TIMESTAMP)
     private LocalDateTime timestamp;
+    
+    @Column(name = "username", nullable = false)
+    private String username;
 }
