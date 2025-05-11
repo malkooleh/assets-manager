@@ -1,0 +1,117 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /api/auth
+
+spring:
+  application:
+    name: auth-service
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/auth_service
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+  # Flyway Migration Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  # Service Discovery with Consul
+  cloud:
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        instanceId: ${spring.application.name}:${random.value}
+        healthCheckPath: /actuator/health
+        healthCheckInterval: 15s
+        prefer-ip-address: true
+        register: true
+
+  # Tracing Configuration (updated for Spring Boot 3.4.x)
+#  tracing:
+#    sampling:
+#      probability: 1.0
+#    propagation:
+#      type: w3c
+#    baggage:
+#      correlation:
+#        enabled: true
+#        fields: baggage-correlation-fields
+
+# Security Configuration
+security:
+  jwt:
+    # Secret key for signing JWTs (in a real environment, use a secure key and don't hardcode it)
+    secret-key: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+    # Token validity in milliseconds (24 hours)
+    token-validity: 86400000
+    # Refresh token validity in milliseconds (7 days)
+    refresh-token-validity: 604800000
+    # Issuer claim for the JWT
+    #    issuer: http://auth-service:8081
+    issuer: auth-service
+    # Audience claim for the JWT (can be customized per client)
+    #    audience: assets-manager
+    audience: assets-management-system
+    # Path to the JWK Set endpoint
+    jwk-set-path: /.well-known/jwks.json
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+# Logging Configuration
+logging:
+  level:
+    root: info
+    com.authservice: debug
+    org.springframework.security: info
+    org.springframework.web: info
+    org.springframework.security.oauth2: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
