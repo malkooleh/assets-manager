@@ -2,6 +2,7 @@ package com.assetsservice.controller;
 
 import com.assetsservice.model.dto.AssetDto;
 import com.assetsservice.model.enumtype.AssetStatus;
+import com.assetsservice.model.response.AssetHistoryResponse;
 import com.assetsservice.model.response.AssetsResponse;
 import com.assetsservice.service.AssetService;
 import lombok.AllArgsConstructor;
@@ -10,11 +11,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @AllArgsConstructor
-
 @RestController
 @RequestMapping("/assets")
 public class AssetController {
@@ -23,21 +24,25 @@ public class AssetController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_ASSET_MANAGER')")
     public void saveAsset(@RequestBody AssetDto asset) {
         assetService.addAsset(asset);
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_ASSET_MANAGER', 'ROLE_USER')")
     public Page<AssetDto> getAssets(@PageableDefault(page = 0, size = 20) Pageable pageable) {
         return assetService.findAll(pageable);
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_ASSET_MANAGER', 'ROLE_USER')")
     public AssetDto getAsset(@PathVariable("id") Integer assetId) {
         return assetService.findById(assetId);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_ASSET_MANAGER')")
     public ResponseEntity<Void> deleteAsset(@PathVariable("id") Integer assetId) {
         AssetDto asset = assetService.findById(assetId);
         if (asset != null) {
@@ -48,21 +53,25 @@ public class AssetController {
     }
 
     @PutMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_ASSET_MANAGER')")
     public void updateAsset(@RequestBody @Validated AssetDto asset) throws Exception {
         assetService.updateAsset(asset);
     }
 
     @GetMapping("/users/{userId}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_ASSET_MANAGER') or @securityEvaluator.isCurrentUser(#userId)")
     public AssetsResponse getAssetsBelongToUser(@PathVariable("userId") Integer userId) throws Exception {
         return assetService.findByUserId(userId);
     }
     
     @GetMapping("/{id}/history")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_ASSET_MANAGER', 'ROLE_AUDITOR')")
     public ResponseEntity<?> getAssetHistory(@PathVariable("id") Integer assetId) {
         return ResponseEntity.ok(assetService.getAssetHistory(assetId));
     }
     
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_ASSET_MANAGER')")
     public ResponseEntity<AssetDto> updateAssetStatus(
             @PathVariable("id") Integer assetId,
             @RequestParam AssetStatus status,
@@ -72,11 +81,13 @@ public class AssetController {
     }
     
     @GetMapping("/available")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_ASSET_MANAGER', 'ROLE_USER')")
     public Page<AssetDto> getAvailableAssets(@PageableDefault(page = 0, size = 20) Pageable pageable) {
         return assetService.findByStatus(AssetStatus.AVAILABLE, pageable);
     }
     
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_ASSET_MANAGER', 'ROLE_USER')")
     public Page<AssetDto> getAssetsByStatus(
             @PathVariable AssetStatus status,
             @PageableDefault(page = 0, size = 20) Pageable pageable) {

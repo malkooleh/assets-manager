@@ -18,14 +18,38 @@ spring:
           uri: lb://user-service
           predicates:
             - Path=/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
         - id: assets-service
           uri: lb://assets-service
           predicates:
             - Path=/assets/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**,/.well-known/jwks.json
+          filters:
+            - StripPrefix=0
+
+# Security configuration
+security:
+  jwt:
+    issuer: assets-manager
+    audience: assets-manager-client
+    jwk-set-uri: http://auth-service:8080/.well-known/jwks.json
 
 logging:
   level:
     root: info
+    com.gatewayservice: debug
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
 
