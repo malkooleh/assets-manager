@@ -14,7 +14,7 @@ public interface AssetService {
     AssetDto findById(Integer assetId);
     Page<AssetDto> findAll(Pageable pageable);
     void deleteById(Integer assetId);
-    AssetsResponse findByUserId(Integer userId) throws AssetNotFoundException;
+    AssetsResponse findByUserId(Integer userId);
     void updateAsset(AssetDto assetDto) throws AssetNotFoundException;
 
     /**

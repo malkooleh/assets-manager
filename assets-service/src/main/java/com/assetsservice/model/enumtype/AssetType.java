@@ -2,5 +2,5 @@ package com.assetsservice.model.enumtype;
 
 public enum AssetType {
 
-    MONITOR, LAPTOP, HEADPHONES;
+    MONITOR, LAPTOP, HEADPHONES, PHONE;
 }

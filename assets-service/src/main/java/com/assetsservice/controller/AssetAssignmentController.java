@@ -1,5 +1,6 @@
 package com.assetsservice.controller;
 
+import com.assetsservice.exception.AssetNotFoundException;
 import com.assetsservice.model.dto.AssetAssignmentDto;
 import com.assetsservice.model.enumtype.AssignmentStatus;
 import com.assetsservice.model.response.AssetAssignmentsResponse;
@@ -18,7 +19,7 @@ public class AssetAssignmentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AssetAssignmentDto assignAsset(@RequestBody AssetAssignmentDto assignmentDto) {
+    public AssetAssignmentDto assignAsset(@RequestBody AssetAssignmentDto assignmentDto) throws AssetNotFoundException {
         return assignmentService.assignAsset(assignmentDto);
     }
 
@@ -31,7 +32,8 @@ public class AssetAssignmentController {
     @PutMapping("/{id}/status")
     public AssetAssignmentDto updateAssignmentStatus(
             @PathVariable("id") Integer assignmentId,
-            @RequestParam AssignmentStatus status) {
+            @RequestParam AssignmentStatus status
+    ) {
         return assignmentService.updateAssignmentStatus(assignmentId, status);
     }
 
@@ -54,7 +56,8 @@ public class AssetAssignmentController {
     public AssetAssignmentDto markAsLostOrBroken(
             @PathVariable("id") Integer assignmentId,
             @RequestParam AssignmentStatus status,
-            @RequestParam(required = false) String notes) {
+            @RequestParam(required = false) String notes
+    ) {
         return assignmentService.markAsLostOrBroken(assignmentId, status, notes);
     }
 }

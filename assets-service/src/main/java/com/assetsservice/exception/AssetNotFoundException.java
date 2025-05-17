@@ -12,4 +12,8 @@ public class AssetNotFoundException extends BaseException {
     public AssetNotFoundException() {
         super("No asset with supplied user ID exists.", STATUS, CODE);
     }
+
+    public AssetNotFoundException(Integer assertId) {
+        super("Asset not found with ID: " + assertId, STATUS, CODE);
+    }
 }

@@ -9,31 +9,20 @@ import com.assetsservice.model.response.AssetHistoryResponse;
 import com.assetsservice.model.response.AssetsResponse;
 import com.assetsservice.repository.AssetRepository;
 import com.assetsservice.service.AssetService;
-import lombok.AllArgsConstructor;
-import org.hibernate.envers.AuditReader;
-import org.hibernate.envers.AuditReaderFactory;
-import org.hibernate.envers.RevisionType;
-import org.hibernate.envers.query.AuditEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class AssetServiceImpl implements AssetService {
 
     private final AssetRepository assetRepository;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     public AssetServiceImpl(AssetRepository assetRepository) {
         this.assetRepository = assetRepository;
@@ -76,10 +65,14 @@ public class AssetServiceImpl implements AssetService {
     }
 
     @Override
-    public AssetsResponse findByUserId(Integer userId) throws AssetNotFoundException {
-        Asset asset = Optional.ofNullable(assetRepository.findByUserId(userId))
-                .orElseThrow(AssetNotFoundException::new);
-        return new AssetsResponse(List.of(AssetMapper.INSTANCE.assetToAssetDto(asset)));
+    public AssetsResponse findByUserId(Integer userId) {
+        List<Asset> assets = assetRepository.findByUserId(userId);
+
+        if (assets.isEmpty()) {
+            return new AssetsResponse(Collections.emptyList());
+        }
+
+        return new AssetsResponse(assets.stream().map(AssetMapper.INSTANCE::assetToAssetDto).toList());
     }
 
     @Override
@@ -95,90 +88,16 @@ public class AssetServiceImpl implements AssetService {
     @Override
     @Transactional(readOnly = true)
     public AssetHistoryResponse getAssetHistory(Integer assetId) {
-        AuditReader auditReader = AuditReaderFactory.get(entityManager);
-
-        List<Object[]> revisions = auditReader.createQuery()
-                .forRevisionsOfEntity(Asset.class, false, true)
-                .add(AuditEntity.id().eq(assetId))
-                .getResultList();
-
-        List<AssetHistoryResponse.AssetRevision> assetRevisions = new ArrayList<>();
-
-        Asset previousAsset = null;
-
-        for (Object[] revision : revisions) {
-            Asset asset = (Asset) revision[0];
-            com.assetsservice.model.db.RevisionAudit revisionEntity = (com.assetsservice.model.db.RevisionAudit) revision[1];
-            RevisionType revisionType = (RevisionType) revision[2];
-
-            if (previousAsset != null) {
-                // Compare fields and create revisions for each changed field
-                if (!previousAsset.getName().equals(asset.getName())) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "name", previousAsset.getName(), asset.getName()));
-                }
-
-                if (!previousAsset.getAssetType().equals(asset.getAssetType())) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "assetType", previousAsset.getAssetType().toString(), asset.getAssetType().toString()));
-                }
-
-                if (!previousAsset.getStatus().equals(asset.getStatus())) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "status", previousAsset.getStatus().toString(), asset.getStatus().toString()));
-                }
-
-                // Compare userId (which might be null)
-                if ((previousAsset.getUserId() == null && asset.getUserId() != null) ||
-                        (previousAsset.getUserId() != null && !previousAsset.getUserId().equals(asset.getUserId()))) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "userId",
-                            previousAsset.getUserId() != null ? previousAsset.getUserId().toString() : "null",
-                            asset.getUserId() != null ? asset.getUserId().toString() : "null"));
-                }
-
-                // Compare notes (which might be null)
-                if ((previousAsset.getNotes() == null && asset.getNotes() != null) ||
-                        (previousAsset.getNotes() != null && !previousAsset.getNotes().equals(asset.getNotes()))) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "notes",
-                            previousAsset.getNotes() != null ? previousAsset.getNotes() : "null",
-                            asset.getNotes() != null ? asset.getNotes() : "null"));
-                }
-            } else if (revisionType == RevisionType.ADD) {
-                // For the first revision (creation), add all fields
-                assetRevisions.add(createRevisionEntry(revisionEntity, "name", null, asset.getName()));
-                assetRevisions.add(createRevisionEntry(revisionEntity, "assetType", null, asset.getAssetType().toString()));
-                assetRevisions.add(createRevisionEntry(revisionEntity, "status", null, asset.getStatus().toString()));
-                if (asset.getUserId() != null) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "userId", null, asset.getUserId().toString()));
-                }
-                if (asset.getNotes() != null) {
-                    assetRevisions.add(createRevisionEntry(revisionEntity, "notes", null, asset.getNotes()));
-                }
-            }
-
-            previousAsset = asset;
-        }
-
-        return new AssetHistoryResponse(assetRevisions);
-    }
-
-    private AssetHistoryResponse.AssetRevision createRevisionEntry(
-            com.assetsservice.model.db.RevisionAudit revisionEntity,
-            String fieldName,
-            String oldValue,
-            String newValue) {
-        return new AssetHistoryResponse.AssetRevision(
-                revisionEntity.getRevisionId(),
-                revisionEntity.getTimestamp(),
-                revisionEntity.getUsername(),
-                fieldName,
-                oldValue,
-                newValue
-        );
+        List<AssetDto> assetsHistory = Optional.ofNullable(assetRepository.findAssetsHistory(assetId))
+                .orElse(Collections.emptyList());
+        return new AssetHistoryResponse(assetsHistory);
     }
 
     @Override
     @Transactional
     public AssetDto updateAssetStatus(Integer assetId, AssetStatus status, String notes) throws AssetNotFoundException {
         Asset asset = assetRepository.findById(assetId)
-                .orElseThrow(() -> new AssetNotFoundException("Asset not found with ID: " + assetId));
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
 
         asset.setStatus(status);
         if (notes != null) {

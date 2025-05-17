@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,37 +29,37 @@ public class AssetAssignmentServiceImpl implements AssetAssignmentService {
 
     @Override
     @Transactional
-    public AssetAssignmentDto assignAsset(AssetAssignmentDto assignmentDto) {
+    public AssetAssignmentDto assignAsset(AssetAssignmentDto assignmentDto) throws AssetNotFoundException {
         Asset asset = assetRepository.findById(assignmentDto.assetId())
-                .orElseThrow(() -> new AssetNotFoundException("Asset not found with ID: " + assignmentDto.assetId()));
-        
+                .orElseThrow(() -> new AssetNotFoundException(assignmentDto.assetId()));
+
         // Update asset status to IN_USE
         asset.setStatus(AssetStatus.IN_USE);
         asset.setUserId(assignmentDto.employeeId());
         assetRepository.save(asset);
-        
+
         // Create assignment
         AssetAssignment assignment = AssetAssignmentMapper.INSTANCE.dtoToAssetAssignment(assignmentDto);
         assignment.setAsset(asset);
         assignment.setAssignmentDate(LocalDateTime.now());
         assignment.setStatus(AssignmentStatus.ACTIVE);
-        
+
         AssetAssignment savedAssignment = assignmentRepository.save(assignment);
         return AssetAssignmentMapper.INSTANCE.assetAssignmentToDto(savedAssignment);
     }
 
     @Override
     @Transactional
-    public void removeAssignment(Integer assignmentId) {
+    public void removeAssignment(Integer assignmentId) throws AssetAssignmentNotFoundException {
         AssetAssignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new AssetAssignmentNotFoundException("Assignment not found with ID: " + assignmentId));
-        
+                .orElseThrow(() -> new AssetAssignmentNotFoundException(assignmentId));
+
         // Update asset status to AVAILABLE
         Asset asset = assignment.getAsset();
         asset.setStatus(AssetStatus.AVAILABLE);
         asset.setUserId(null);
         assetRepository.save(asset);
-        
+
         // Update assignment status to RETURNED
         assignment.setStatus(AssignmentStatus.RETURNED);
         assignment.setReturnDate(LocalDateTime.now());
@@ -69,23 +68,23 @@ public class AssetAssignmentServiceImpl implements AssetAssignmentService {
 
     @Override
     @Transactional
-    public AssetAssignmentDto updateAssignmentStatus(Integer assignmentId, AssignmentStatus status) {
+    public AssetAssignmentDto updateAssignmentStatus(Integer assignmentId, AssignmentStatus status) throws AssetAssignmentNotFoundException {
         AssetAssignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new AssetAssignmentNotFoundException("Assignment not found with ID: " + assignmentId));
-        
+                .orElseThrow(() -> new AssetAssignmentNotFoundException(assignmentId));
+
         assignment.setStatus(status);
-        
+
         // If returning the asset
         if (status == AssignmentStatus.RETURNED) {
             assignment.setReturnDate(LocalDateTime.now());
-            
+
             // Update asset status
             Asset asset = assignment.getAsset();
             asset.setStatus(AssetStatus.AVAILABLE);
             asset.setUserId(null);
             assetRepository.save(asset);
         }
-        
+
         AssetAssignment updatedAssignment = assignmentRepository.save(assignment);
         return AssetAssignmentMapper.INSTANCE.assetAssignmentToDto(updatedAssignment);
     }
@@ -96,7 +95,7 @@ public class AssetAssignmentServiceImpl implements AssetAssignmentService {
         List<AssetAssignmentDto> assignmentDtos = assignments.stream()
                 .map(AssetAssignmentMapper.INSTANCE::assetAssignmentToDto)
                 .collect(Collectors.toList());
-        
+
         return new AssetAssignmentsResponse(assignmentDtos);
     }
 
@@ -106,15 +105,15 @@ public class AssetAssignmentServiceImpl implements AssetAssignmentService {
         List<AssetAssignmentDto> assignmentDtos = assignments.stream()
                 .map(AssetAssignmentMapper.INSTANCE::assetAssignmentToDto)
                 .collect(Collectors.toList());
-        
+
         return new AssetAssignmentsResponse(assignmentDtos);
     }
 
     @Override
     public AssetAssignmentDto findById(Integer assignmentId) {
         AssetAssignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new AssetAssignmentNotFoundException("Assignment not found with ID: " + assignmentId));
-        
+                .orElseThrow(() -> new AssetAssignmentNotFoundException(assignmentId));
+
         return AssetAssignmentMapper.INSTANCE.assetAssignmentToDto(assignment);
     }
 
@@ -124,18 +123,18 @@ public class AssetAssignmentServiceImpl implements AssetAssignmentService {
         if (status != AssignmentStatus.LOST && status != AssignmentStatus.BROKEN) {
             throw new IllegalArgumentException("Status must be either LOST or BROKEN");
         }
-        
+
         AssetAssignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new AssetAssignmentNotFoundException("Assignment not found with ID: " + assignmentId));
-        
+                .orElseThrow(() -> new AssetAssignmentNotFoundException(assignmentId));
+
         assignment.setStatus(status);
         assignment.setNotes(notes);
-        
+
         // Update asset status
         Asset asset = assignment.getAsset();
         asset.setStatus(status == AssignmentStatus.LOST ? AssetStatus.LOST : AssetStatus.BROKEN);
         assetRepository.save(asset);
-        
+
         AssetAssignment updatedAssignment = assignmentRepository.save(assignment);
         return AssetAssignmentMapper.INSTANCE.assetAssignmentToDto(updatedAssignment);
     }

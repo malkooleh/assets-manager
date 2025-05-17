@@ -1,5 +1,6 @@
 package com.assetsservice.controller;
 
+import com.assetsservice.exception.AssetNotFoundException;
 import com.assetsservice.model.dto.AssetPhotoDto;
 import com.assetsservice.service.AssetPhotoService;
 import lombok.AllArgsConstructor;
@@ -26,30 +27,23 @@ public class AssetPhotoController {
     public ResponseEntity<AssetPhotoDto> uploadPhoto(
             @PathVariable Integer assetId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String description) {
-        try {
-            AssetPhotoDto photoDto = assetPhotoService.uploadPhoto(assetId, file, description);
-            return ResponseEntity.status(HttpStatus.CREATED).body(photoDto);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+            @RequestParam(required = false) String description
+    ) throws AssetNotFoundException, IOException {
+        AssetPhotoDto photoDto = assetPhotoService.uploadPhoto(assetId, file, description);
+        return ResponseEntity.status(HttpStatus.CREATED).body(photoDto);
     }
 
     @GetMapping("/{photoId}/content")
-    public ResponseEntity<Resource> getPhotoContent(@PathVariable Integer photoId) {
-        try {
-            AssetPhotoDto photoDto = assetPhotoService.getPhotoById(photoId);
-            byte[] photoContent = assetPhotoService.getPhotoContent(photoId);
-            
-            ByteArrayResource resource = new ByteArrayResource(photoContent);
-            
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + photoDto.fileName() + "\"")
-                    .contentType(MediaType.parseMediaType(photoDto.contentType()))
-                    .body(resource);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    public ResponseEntity<Resource> getPhotoContent(@PathVariable Integer photoId) throws IOException {
+        AssetPhotoDto photoDto = assetPhotoService.getPhotoById(photoId);
+        byte[] photoContent = assetPhotoService.getPhotoContent(photoId);
+
+        ByteArrayResource resource = new ByteArrayResource(photoContent);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + photoDto.fileName() + "\"")
+                .contentType(MediaType.parseMediaType(photoDto.contentType()))
+                .body(resource);
     }
 
     @GetMapping("/asset/{assetId}")

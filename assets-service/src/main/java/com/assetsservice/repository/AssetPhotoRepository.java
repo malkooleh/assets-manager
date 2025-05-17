@@ -8,6 +8,8 @@ import java.util.List;
 
 @Repository
 public interface AssetPhotoRepository extends JpaRepository<AssetPhoto, Integer> {
+
+    String ASSET_PHOTO_ID_SEQUENCE = "asset_photo_id_sequence";
     
     List<AssetPhoto> findByAssetAssetId(Integer assetId);
     

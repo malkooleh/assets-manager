@@ -1,14 +1,13 @@
 package com.assetsservice.service;
 
+import com.assetsservice.exception.AssetNotFoundException;
 import com.assetsservice.model.dto.AssetAssignmentDto;
 import com.assetsservice.model.enumtype.AssignmentStatus;
 import com.assetsservice.model.response.AssetAssignmentsResponse;
 
-import java.util.List;
-
 public interface AssetAssignmentService {
 
-    AssetAssignmentDto assignAsset(AssetAssignmentDto assignmentDto);
+    AssetAssignmentDto assignAsset(AssetAssignmentDto assignmentDto) throws AssetNotFoundException;
     
     void removeAssignment(Integer assignmentId);
     

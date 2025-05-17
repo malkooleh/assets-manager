@@ -6,6 +6,16 @@ spring:
   application:
     name: assets-service
 
+  profiles:
+    active: test
+
+  # Security settings - simplified for tests since auth is handled by gateway service
+  security:
+    user:
+      name: test-user
+      password: test-password
+
+  # Disable service discovery for tests
   cloud:
     consul:
       enabled: false
@@ -13,15 +23,19 @@ spring:
         enabled: false
     #        instanceId: ${spring.application.name}:${spring.application.instance-id:${random.value}}
 
+  # Test database configuration
   datasource:
     url: jdbc:h2:mem:assetsManager;DB_CLOSE_DELAY=-1
     username: sa
     password:
     driver-class-name: org.h2.Driver
+  # JPA/Hibernate configuration
   jpa:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        show_sql: true
+        format_sql: true
       # Configure database auditing properties
       org:
         hibernate:
@@ -38,3 +52,8 @@ spring:
     url: ${spring.datasource.url}
     user: ${spring.datasource.username}
     password: ${spring.datasource.password}
+
+# File upload settings
+app:
+  upload:
+    dir: test-uploads
