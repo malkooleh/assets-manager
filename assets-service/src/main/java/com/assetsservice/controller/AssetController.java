@@ -53,15 +53,15 @@ public class AssetController {
     }
 
     @GetMapping("/users/{userId}")
-    public AssetsResponse getAssetsBelongToUser(@PathVariable("userId") Integer userId) throws Exception {
+    public AssetsResponse getAssetsBelongToUser(@PathVariable("userId") Integer userId) {
         return assetService.findByUserId(userId);
     }
-    
+
     @GetMapping("/{id}/history")
     public ResponseEntity<?> getAssetHistory(@PathVariable("id") Integer assetId) {
         return ResponseEntity.ok(assetService.getAssetHistory(assetId));
     }
-    
+
     @PutMapping("/{id}/status")
     public ResponseEntity<AssetDto> updateAssetStatus(
             @PathVariable("id") Integer assetId,
@@ -70,12 +70,12 @@ public class AssetController {
         AssetDto updatedAsset = assetService.updateAssetStatus(assetId, status, notes);
         return ResponseEntity.ok(updatedAsset);
     }
-    
+
     @GetMapping("/available")
     public Page<AssetDto> getAvailableAssets(@PageableDefault(page = 0, size = 20) Pageable pageable) {
         return assetService.findByStatus(AssetStatus.AVAILABLE, pageable);
     }
-    
+
     @GetMapping("/status/{status}")
     public Page<AssetDto> getAssetsByStatus(
             @PathVariable AssetStatus status,

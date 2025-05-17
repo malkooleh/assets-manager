@@ -1,5 +1,8 @@
 package com.userservice.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.userservice.helper.MockAssetsApiHelper;
 import com.userservice.model.client.response.AssetResponse;
 import com.userservice.model.client.response.AssetsResponse;
@@ -7,9 +10,6 @@ import com.userservice.model.db.User;
 import com.userservice.model.dto.UserDto;
 import com.userservice.model.response.UserResponse;
 import com.userservice.repository.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class UserControllerTest {
 
     public static final int NOT_EXISTED_USER_ID = 111;
     @RegisterExtension
-    static WireMockExtension MOCK_ASSETS_API = WireMockExtension.newInstance()
+    private static final WireMockExtension MOCK_ASSETS_API = WireMockExtension.newInstance()
             .options(wireMockConfig().port(8082)) //should be obtained from the property spring.cloud.openfeign.client.config.assets-service.url
             .build();
 
@@ -53,9 +53,9 @@ class UserControllerTest {
     private UserRepository userRepository;
 
     @BeforeEach
-    public void setUp() {
-        userRepository.deleteAll();
+    void setUp() {
         MOCK_ASSETS_API.resetAll();
+        userRepository.deleteAll();
     }
 
     @Test
@@ -73,9 +73,9 @@ class UserControllerTest {
         // then
         List<User> savedUser = userRepository.findAll();
         assertThat(savedUser).hasSize(1);
-        assertThat(savedUser.get(0).getUserId()).isNotNull();
-        assertThat(savedUser.get(0).getName()).isEqualTo(user.getName());
-        assertThat(savedUser.get(0).getEmail()).isEqualTo(user.getEmail());
+        assertThat(savedUser.getFirst().getUserId()).isNotNull();
+        assertThat(savedUser.getFirst().getName()).isEqualTo(user.getName());
+        assertThat(savedUser.getFirst().getEmail()).isEqualTo(user.getEmail());
     }
 
     @Test
@@ -144,7 +144,7 @@ class UserControllerTest {
         User user = buildValidUser();
         userRepository.save(user);
 
-        Integer userId = userRepository.findAll().get(0).getUserId();
+        Integer userId = userRepository.findAll().getFirst().getUserId();
 
         // when
         ResultActions result = mockMvc.perform(delete("/users/" + userId));
@@ -160,7 +160,7 @@ class UserControllerTest {
         User user = buildValidUser();
         userRepository.save(user);
 
-        Integer userId = userRepository.findAll().get(0).getUserId();
+        Integer userId = userRepository.findAll().getFirst().getUserId();
         MockAssetsApiHelper.mockSuccessfulGetAssets(MOCK_ASSETS_API, userId);
 
         // when
@@ -172,7 +172,7 @@ class UserControllerTest {
         AssetsResponse assetsResponse = objectMapper.readValue(result.andReturn().getResponse().getContentAsString(), AssetsResponse.class);
         assertThat(assetsResponse).isNotNull();
         assertThat(assetsResponse.assets()).isNotEmpty();
-        AssetResponse asset = assetsResponse.assets().get(0);
+        AssetResponse asset = assetsResponse.assets().getFirst();
         assertThat(asset.name()).isEqualTo("device1");
         assertThat(asset.assetType()).isEqualTo("MONITOR");
         assertThat(asset.status()).isEqualTo("AVAILABLE");

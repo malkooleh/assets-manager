@@ -52,7 +52,7 @@ logging:
     com.assetsservice: debug
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
-    console: %d{yyyy-MM-dd HH:mm:ss} - %msg%n
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
 # Zipkin
 management:

@@ -9,7 +9,7 @@ import com.assetsservice.model.mapper.AssetPhotoMapper;
 import com.assetsservice.repository.AssetPhotoRepository;
 import com.assetsservice.repository.AssetRepository;
 import com.assetsservice.service.AssetPhotoService;
-import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +23,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class AssetPhotoServiceImpl implements AssetPhotoService {
 
@@ -37,11 +39,12 @@ public class AssetPhotoServiceImpl implements AssetPhotoService {
     public AssetPhotoServiceImpl(
             AssetPhotoRepository photoRepository,
             AssetRepository assetRepository,
-            @Value("${app.upload.dir:uploads}") String uploadDir) {
+            @Value("${app.upload.dir:uploads}") String uploadDir
+    ) {
         this.photoRepository = photoRepository;
         this.assetRepository = assetRepository;
         this.uploadDir = uploadDir;
-        
+
         // Create upload directory if it doesn't exist
         File directory = new File(uploadDir);
         if (!directory.exists()) {
@@ -51,29 +54,31 @@ public class AssetPhotoServiceImpl implements AssetPhotoService {
 
     @Override
     @Transactional
-    public AssetPhotoDto uploadPhoto(Integer assetId, MultipartFile file, String description) throws IOException {
+    public AssetPhotoDto uploadPhoto(Integer assetId, MultipartFile file, String description) throws IOException, AssetNotFoundException {
         Asset asset = assetRepository.findById(assetId)
-                .orElseThrow(() -> new AssetNotFoundException("Asset not found with ID: " + assetId));
-        
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
+
         // Generate unique filename
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+        String originalFilename = Optional.ofNullable(file.getOriginalFilename())
+                .map(StringUtils::cleanPath)
+                .orElse("%s-%s".formatted(assetId, LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)));
         String fileExtension = "";
         if (originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
         String uniqueFilename = UUID.randomUUID() + fileExtension;
-        
+
         // Create directory for asset if it doesn't exist
         String assetUploadDir = uploadDir + File.separator + assetId;
         File assetDirectory = new File(assetUploadDir);
         if (!assetDirectory.exists()) {
             assetDirectory.mkdirs();
         }
-        
+
         // Save file to disk
         Path targetLocation = Paths.get(assetUploadDir + File.separator + uniqueFilename);
         Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-        
+
         // Create and save photo metadata
         AssetPhoto photo = AssetPhoto.builder()
                 .asset(asset)
@@ -84,7 +89,7 @@ public class AssetPhotoServiceImpl implements AssetPhotoService {
                 .description(description)
                 .uploadDate(LocalDateTime.now())
                 .build();
-        
+
         AssetPhoto savedPhoto = photoRepository.save(photo);
         return AssetPhotoMapper.INSTANCE.assetPhotoToDto(savedPhoto);
     }
@@ -94,14 +99,14 @@ public class AssetPhotoServiceImpl implements AssetPhotoService {
         List<AssetPhoto> photos = photoRepository.findByAssetAssetId(assetId);
         return photos.stream()
                 .map(AssetPhotoMapper.INSTANCE::assetPhotoToDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
     public AssetPhotoDto getPhotoById(Integer photoId) {
         AssetPhoto photo = photoRepository.findById(photoId)
-                .orElseThrow(() -> new AssetPhotoNotFoundException("Photo not found with ID: " + photoId));
-        
+                .orElseThrow(() -> new AssetPhotoNotFoundException(photoId));
+
         return AssetPhotoMapper.INSTANCE.assetPhotoToDto(photo);
     }
 
@@ -109,24 +114,24 @@ public class AssetPhotoServiceImpl implements AssetPhotoService {
     @Transactional
     public void deletePhoto(Integer photoId) {
         AssetPhoto photo = photoRepository.findById(photoId)
-                .orElseThrow(() -> new AssetPhotoNotFoundException("Photo not found with ID: " + photoId));
-        
+                .orElseThrow(() -> new AssetPhotoNotFoundException(photoId));
+
         // Delete file from disk
         try {
             Files.deleteIfExists(Paths.get(photo.getFilePath()));
         } catch (IOException e) {
             // Log error but continue with database deletion
-            System.err.println("Failed to delete file: " + photo.getFilePath());
+            log.error("Failed to delete file: {}", photo.getFilePath());
         }
-        
+
         photoRepository.deleteById(photoId);
     }
 
     @Override
     public byte[] getPhotoContent(Integer photoId) throws IOException {
         AssetPhoto photo = photoRepository.findById(photoId)
-                .orElseThrow(() -> new AssetPhotoNotFoundException("Photo not found with ID: " + photoId));
-        
+                .orElseThrow(() -> new AssetPhotoNotFoundException(photoId));
+
         Path filePath = Paths.get(photo.getFilePath());
         return Files.readAllBytes(filePath);
     }

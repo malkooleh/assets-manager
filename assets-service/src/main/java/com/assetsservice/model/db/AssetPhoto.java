@@ -8,6 +8,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
+import static com.assetsservice.repository.AssetPhotoRepository.ASSET_PHOTO_ID_SEQUENCE;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,8 +22,8 @@ import java.time.LocalDateTime;
 public class AssetPhoto {
 
     @Id
-    @SequenceGenerator(name = "asset_photo_id_sequence", sequenceName = "asset_photo_id_sequence", allocationSize = 1)
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "asset_photo_id_sequence")
+    @SequenceGenerator(name = ASSET_PHOTO_ID_SEQUENCE, sequenceName = ASSET_PHOTO_ID_SEQUENCE, allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = ASSET_PHOTO_ID_SEQUENCE)
     private Integer photoId;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -11,6 +11,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
+import static com.assetsservice.repository.AssetAssignmentRepository.ASSET_ASSIGNMENT_ID_SEQUENCE;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,8 +25,8 @@ import java.time.LocalDateTime;
 public class AssetAssignment {
 
     @Id
-    @SequenceGenerator(name = "asset_assignment_id_sequence", sequenceName = "asset_assignment_id_sequence", allocationSize = 1)
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "asset_assignment_id_sequence")
+    @SequenceGenerator(name = ASSET_ASSIGNMENT_ID_SEQUENCE, sequenceName = ASSET_ASSIGNMENT_ID_SEQUENCE, allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = ASSET_ASSIGNMENT_ID_SEQUENCE)
     private Integer assignmentId;
 
     @ManyToOne(fetch = FetchType.LAZY)

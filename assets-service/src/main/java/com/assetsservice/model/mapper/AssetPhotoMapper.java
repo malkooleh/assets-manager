@@ -5,6 +5,7 @@ import com.assetsservice.model.db.AssetPhoto;
 import com.assetsservice.model.dto.AssetPhotoDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.Named;
 import org.mapstruct.factory.Mappers;
 
 @Mapper
@@ -18,6 +19,7 @@ public interface AssetPhotoMapper {
     @Mapping(target = "asset", source = "assetId", qualifiedByName = "assetIdToAsset")
     AssetPhoto dtoToAssetPhoto(AssetPhotoDto dto);
 
+    @Named("assetIdToAsset")
     default Asset assetIdToAsset(Integer assetId) {
         if (assetId == null) {
             return null;
