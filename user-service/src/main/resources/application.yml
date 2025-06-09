@@ -14,9 +14,10 @@ spring:
 
   datasource:
     driverClassName: org.postgresql.Driver
-#   jdbc:postgresql://localhost:5434/user-service-db - for spring boot runner
-#   jdbc:postgresql://user-service-db/user-service-db - for docker compose
-    url: jdbc:postgresql://user-service-db/user-service-db
+    # for spring boot runner
+    url: jdbc:postgresql://localhost:5434/user-service-db
+    # for docker compose
+#    url: jdbc:postgresql://user-service-db/user-service-db
     username: user
     password: password
   jpa:
@@ -52,6 +53,76 @@ management:
   zipkin:
     tracing:
 #      for spring boot runner use localhost
-#      endpoint: http://localhost:9411/api/v2/spans
+      endpoint: http://localhost:9411/api/v2/spans
 #      for docker compose use zipkin
-      endpoint: http://zipkin:9411/api/v2/spans
+#      endpoint: http://zipkin:9411/api/v2/spans
+
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,circuitbreakers,retries,metrics,caches
+  health:
+    circuitbreakers:
+      enabled: true
+
+# Resilience4j Configuration
+resilience4j:
+  # Circuit Breaker Configuration.
+  # Circuit Breaker is used to prevent cascading failures in distributed systems
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        slowCallDurationThreshold: 15s
+        slowCallRateThreshold: 50
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      assets-service:
+        baseConfig: default
+        # Custom configuration for assets-service circuit breaker
+        slidingWindowType: TIME_BASED
+        waitDurationInOpenState: 2s
+        failureRateThreshold: 30
+  # Retry Configuration. Used for retrying failed calls
+  # Can be used with synchronous methods, Flux/Mono, or CompletableFuture
+  retry:
+    instances:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  # Use TimeLimiter with Flux/Mono or CompletableFuture
+  # Note: TimeLimiter is not applicable for synchronous methods
+  timelimiter:
+    instances:
+      default:
+        timeoutDuration: 4s
+        cancelRunningFuture: true
+      user-service:
+        timeoutDuration: 2s
+  # Bulkhead Configuration. Used to limit the number of concurrent calls
+  # and the maximum wait duration for calls to complete.
+  # With WebFlux, bulkheads can lead to blocking pulls, so use with caution.
+  bulkhead:
+    instances:
+      default:
+        maxConcurrentCalls: 25
+        maxWaitDuration: 500ms
+  ratelimiter:
+    instances:
+      default:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 3s

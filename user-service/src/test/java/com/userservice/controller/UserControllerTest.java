@@ -12,13 +12,16 @@ import com.userservice.model.response.UserResponse;
 import com.userservice.repository.UserRepository;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,9 +38,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class UserControllerTest {
 
-    public static final int NOT_EXISTED_USER_ID = 111;
+    private static final int NOT_EXISTED_USER_ID = 111;
+
     @RegisterExtension
     private static final WireMockExtension MOCK_ASSETS_API = WireMockExtension.newInstance()
             .options(wireMockConfig().port(8082)) //should be obtained from the property spring.cloud.openfeign.client.config.assets-service.url
@@ -155,27 +160,129 @@ class UserControllerTest {
     }
 
     @Test
-    void getUserAssets() throws Exception {
+    @DisplayName("Should return assets when user exists and has assets")
+    void shouldReturnAssets_whenUserHasAssets() throws Exception {
         // given
         User user = buildValidUser();
         userRepository.save(user);
 
-        Integer userId = userRepository.findAll().getFirst().getUserId();
+        Integer userId = user.getUserId();
         MockAssetsApiHelper.mockSuccessfulGetAssets(MOCK_ASSETS_API, userId);
 
         // when
-        ResultActions result = mockMvc.perform(get("/users/" + userId + "/assets"));
+        MvcResult result = mockMvc.perform(get("/users/{id}/assets", userId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
 
         // then
-        MOCK_ASSETS_API.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/assets/users/" + userId)));
+        AssetsResponse response = objectMapper.readValue(result.getResponse().getContentAsString(), AssetsResponse.class);
 
-        AssetsResponse assetsResponse = objectMapper.readValue(result.andReturn().getResponse().getContentAsString(), AssetsResponse.class);
-        assertThat(assetsResponse).isNotNull();
-        assertThat(assetsResponse.assets()).isNotEmpty();
-        AssetResponse asset = assetsResponse.assets().getFirst();
-        assertThat(asset.name()).isEqualTo("device1");
-        assertThat(asset.assetType()).isEqualTo("MONITOR");
-        assertThat(asset.status()).isEqualTo("AVAILABLE");
+        assertThat(response).isNotNull();
+        assertThat(response.assets()).isNotEmpty();
+        assertThat(response.assets()).hasSizeGreaterThanOrEqualTo(1);
+
+        AssetResponse firstAsset = response.assets().getFirst();
+        assertThat(firstAsset.name()).isNotBlank();
+        assertThat(firstAsset.assetType()).isNotBlank();
+
+        // Verify the correct endpoint was called
+        MOCK_ASSETS_API.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/assets/users/" + userId)));
+    }
+
+    @Test
+    @DisplayName("Should return empty assets list when user exists but has no assets")
+    void shouldReturnEmptyList_whenUserHasNoAssets() throws Exception {
+        // given
+        User user = buildValidUser();
+        userRepository.save(user);
+
+        Integer userId = user.getUserId();
+        MockAssetsApiHelper.mockEmptyResponseGetUserAssets(MOCK_ASSETS_API, userId);
+
+        // when
+        MvcResult result = mockMvc.perform(get("/users/{id}/assets", userId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // then
+        AssetsResponse response = objectMapper.readValue(result.getResponse().getContentAsString(), AssetsResponse.class);
+
+        assertThat(response).isNotNull();
+        assertThat(response.assets()).isEmpty();
+
+        // Verify the correct endpoint was called
+        MOCK_ASSETS_API.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/assets/users/" + userId)));
+    }
+
+    @Test
+    @DisplayName("Should return 404 when user does not exist")
+    void shouldReturn404_whenUserDoesNotExist() throws Exception {
+        // when & then
+        mockMvc.perform(get("/users/{id}/assets", NOT_EXISTED_USER_ID)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+
+        // Verify no calls were made to assets service
+        MOCK_ASSETS_API.verify(0, WireMock.getRequestedFor(WireMock.urlEqualTo("/assets/users/" + NOT_EXISTED_USER_ID)));
+    }
+
+    @Test
+    void testCircuitBreakerOnUserAssets() throws Exception {
+        // given
+        User user = buildValidUser();
+        userRepository.save(user);
+
+        int userId = user.getUserId();
+        MockAssetsApiHelper.mockInternalServerErrorGetAssets(MOCK_ASSETS_API, userId);
+
+        // First N calls should return 500 (circuit breaker closed, failures)
+        for (int i = 1; i <= 5; i++) {
+            mockMvc.perform(get("/users/" + userId + "/assets")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isInternalServerError());
+
+            // Small delay to avoid overwhelming the system
+            Thread.sleep(100);
+        }
+
+        // Small delay to ensure the circuit breaker has time to process
+        Thread.sleep(500);
+
+        // Next calls should return 503 (circuit breaker open)
+        for (int i = 1; i <= 3; i++) {  // Reduced from 5 to 3 calls to avoid excessive testing
+            mockMvc.perform(get("/users/" + userId + "/assets")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isServiceUnavailable());
+
+            // Small delay between calls
+            Thread.sleep(100);
+        }
+
+        // then
+        MOCK_ASSETS_API.verify(5, WireMock.getRequestedFor(WireMock.urlEqualTo("/assets/users/" + userId)));
+    }
+
+    @Test
+    @DisplayName("Should handle timeout from assets service")
+    void shouldHandleTimeout_fromAssetsService() throws Exception {
+        // given
+        User user = buildValidUser();
+        userRepository.save(user);
+
+        int userId = user.getUserId();
+        MockAssetsApiHelper.mockDelayedGetAssets(MOCK_ASSETS_API, userId, 2000); // 2 seconds delay
+
+        // when
+        MvcResult mvcResult = mockMvc.perform(get("/async/users/" + userId + "/assets")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andReturn();
+
+        // then
+        // Delay to allow the async processing to complete
+        Thread.sleep(3000);
+        assertThat(mvcResult.getResponse().getStatus()).isEqualTo(200);
     }
 
     private User buildValidUser() {

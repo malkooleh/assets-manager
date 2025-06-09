@@ -36,10 +36,49 @@ spring:
             revision_type_field_name: revision_type
     hibernate:
       ddl-auto: none
-#    show-sql: true
+  #    show-sql: true
 
   flyway:
     table: schema_version
     url: ${spring.datasource.url}
     user: ${spring.datasource.username}
     password: ${spring.datasource.password}
+
+logging:
+  level:
+    root: debug
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# Resilience4j Configuration for Tests
+resilience4j:
+  circuitbreaker:
+    instances:
+      default:
+        sliding-window-type: COUNT_BASED
+        slidingWindowSize: 10 # Records the last 10 calls to determine the failure rate
+        minimumNumberOfCalls: 5  # After 5 calls the circuit breaker will open if the failure rate is above threshold
+        permittedNumberOfCallsInHalfOpenState: 3
+        waitDurationInOpenState: 5s # Circuit stays open for 5 seconds before transitioning to half-open
+        failureRateThreshold: 50 # Opens the circuit if 50% of calls fail
+        automatic-transition-from-open-to-half-open-enabled: true
+        recordExceptions:
+          - java.lang.Exception
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+  retry:
+    instances:
+      default:
+        maxAttempts: 3
+        waitDuration: 100ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+  bulkhead:
+    instances:
+      default:
+        maxConcurrentCalls: 10
+  timelimiter:
+    instances:
+      default:
+        timeoutDuration: 2s
+        cancelRunningFuture: true

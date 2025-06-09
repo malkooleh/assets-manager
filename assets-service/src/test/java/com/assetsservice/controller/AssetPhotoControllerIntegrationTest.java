@@ -3,13 +3,10 @@ package com.assetsservice.controller;
 import com.assetsservice.model.db.Asset;
 import com.assetsservice.model.db.AssetPhoto;
 import com.assetsservice.model.dto.AssetPhotoDto;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
@@ -19,6 +16,8 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -36,27 +35,33 @@ class AssetPhotoControllerIntegrationTest extends BaseControllerIntegrationTest 
     @Value("${app.upload.dir:test-uploads}")
     private String uploadDir;
 
-    @TempDir
-    static Path tempDir;
-
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        @Primary
-        public String uploadDir() {
-            return tempDir.toString();
-        }
-    }
-
     @Override
     @BeforeEach
     void baseSetUp() {
         super.baseSetUp();
+    }
 
-        // Create test directory if it doesn't exist
-        File directory = new File(uploadDir);
-        if (!directory.exists()) {
-            directory.mkdirs();
+    @AfterAll
+    static void cleanUpUploadDirAfterAll() throws Exception {
+        // Remove the directory specified by uploadDir property ("test-uploads")
+        File testUploadsDir = new File("test-uploads");
+        // If the directory exists, delete all files and subdirectories
+        if (testUploadsDir.exists()) {
+            try (Stream<Path> pathStream = Files.walk(testUploadsDir.toPath())) {
+                pathStream
+                        .sorted(Comparator.reverseOrder()) // delete files before directories
+                        .forEach(path -> {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (Exception e) {
+                                // Ignore
+                            }
+                        });
+                // Try deleting the directory itself again in case it still exists
+                Files.deleteIfExists(testUploadsDir.toPath());
+            } catch (Exception e) {
+                // Ignore
+            }
         }
     }
 
@@ -72,8 +77,7 @@ class AssetPhotoControllerIntegrationTest extends BaseControllerIntegrationTest 
                 "file",
                 "test-image.jpg",
                 MediaType.IMAGE_JPEG_VALUE,
-                TEST_IMAGE_CONTENT
-        );
+                TEST_IMAGE_CONTENT);
 
         // when & then
         MvcResult result = mockMvc.perform(multipart("/asset-photos/{assetId}", testAsset.getAssetId())
@@ -89,8 +93,7 @@ class AssetPhotoControllerIntegrationTest extends BaseControllerIntegrationTest 
         // verify photo was created in database
         AssetPhotoDto photoDto = objectMapper.readValue(
                 result.getResponse().getContentAsString(),
-                AssetPhotoDto.class
-        );
+                AssetPhotoDto.class);
 
         assertThat(photoRepository.findById(photoDto.photoId())).isPresent();
 
